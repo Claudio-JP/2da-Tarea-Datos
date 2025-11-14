@@ -1,17 +1,156 @@
 ## Tarea Análisis de Datos II
+### Que hace popular una canción?
+
+Explorar la relación entre la popularidad de una canción y sus componentes estructurales
 
 ```{r importación bases}
-
 library(tidyverse)
 library(readxl)
 library(writexl)
+library(ggcorrplot)
 ```
 
 ```{r descarga base de datos relevante}
-spotify_songs <- read_csv("tracks_features.csv")
+base_sp_yt <- read_csv("Spotify_Youtube.csv")
 ```
 
-```{r selección de variables relevantes}
-spotify_songs_select <- spotify_songs %>% select()
+```{r selección y limpieza de variables relevantes}
+#se seleccionan las variables a analizar
+base_sp_yt_select <- base_sp_yt %>% select(Track, Artist, Album_type, Danceability, Energy, Loudness, Valence, Tempo, Duration_ms, Stream, Views, Likes, Comments)
+
+#Se elimina la base original en pos del orden
+rm(base_sp_yt)
+
+#Se estandarizan los nombres de las variables a lower case y a español
+base_sp_yt_select <- base_sp_yt_select %>% rename(cancion = Track,
+                                                  autor = Artist,
+                                                  tipo_album = Album_type,
+                                                  bailable = Danceability,
+                                                  intensidad = Energy,
+                                                  decibeles = Loudness,
+                                                  positividad = Valence,
+                                                  tempo = Tempo,
+                                                  duracion = Duration_ms,
+                                                  reprod_spt = Stream,
+                                                  visualizaciones = Views,
+                                                  likes = Likes,
+                                                  comentarios = Comments)
+
+#La duración de las canciones está medida en milisegundos. Para facilitar la comprensión de los análisis, se transformará a segundos
+
+base_sp_yt_select <- base_sp_yt_select %>% mutate(duracion = duracion / 1000)
+```
+
+Primero se harán algunos cálculos de correlación de interés. Se utilizará likes y reproducciones como variables de operacionalización para la popularidad. Visualizaciones no porque likes ya funge como variable operacionalización desde youtube
+
+```{r cálculos iniciales de correlación entre variables de interés}
+
+cor(base_sp_yt_select$positividad, base_sp_yt_select$likes, use = "complete.obs")
+# 0.01186376
+cor(base_sp_yt_select$positividad, base_sp_yt_select$reprod_spt, use = "complete.obs")
+# -0.01210929
+
+#breve comentario
+
+---O---
+
+cor(base_sp_yt_select$intensidad, base_sp_yt_select$likes, use = "complete.obs")
+# 0.06282433
+cor(base_sp_yt_select$intensidad, base_sp_yt_select$reprod_spt, use = "complete.obs")
+# 0.04423912
+
+# comentario
+
+---O---
+  
+cor(base_sp_yt_select$bailable, base_sp_yt_select$reprod_spt, use = "complete.obs")
+# 0.07337514
+cor(base_sp_yt_select$bailable, base_sp_yt_select$likes, use = "complete.obs")
+# 0.09939559
+
+#comentarios
+```
+
+```{r heatmap de correlaciones}
+
+#Para poder realizar un análisis holístico con todas las variables, se procede a realizar un heatmap de correlaciones. Esto es, un cuadro que ilustre la correlación entre cada una de las variables en la base de datos. Primero, se crea una nueva base sin las variables cancion, autor y tipo de album, por ser de tipo caracter
+
+base_cor <- base_sp_yt_select %>% select(-cancion, -autor, -tipo_album)
+
+base_cor_data <- cor(base_cor, use = "complete.obs")
+
+ggcorrplot(
+  base_cor_data,
+  hc.order = TRUE,       # ordena variables por clustering
+  type = "lower",        # solo mitad inferior
+  lab = TRUE,            # muestra los valores
+  lab_size = 3,
+  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo
+)
+
+```
+
+estos resultados evidencian una dinámica poco esperada: poca correlación entre las características de una canción y su popularidad, medida por reproducciones y like. Se realizará el mismo gráfico, pero con correlación de spearman. 
+
+```{r Spearson Headmap}
+base_cor_sp <- cor(base_cor, use = "complete.obs", method = "spearman")
+
+ggcorrplot(
+  base_cor_sp,
+  hc.order = TRUE,       # ordena variables por clustering
+  type = "lower",        # solo mitad inferior
+  lab = TRUE,            # muestra los valores
+  lab_size = 3,
+  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo
+)
+
+```
+
+Los resultados nos dan más de lo mismo: las características propias de una canción parecieran no afectar su popularidad. Otras variables parecieran afectar el éxito de una canción, sin embargo, pareciera que la presente base de datos no nos permite estudiar esto de momento. Ahora procedemos a hacer un último breve análisis de las top 10 canciones, determinadas por el total de reproducciones entre ambas plataformas, con lo que se sumará, por canción, las columnas visualizacion y reprod_sp
+
+```{r top 10}
+top_10 <- base_sp_yt_select %>% mutate(suma = visualizaciones + reprod_spt)
+
+top_10 <- top_10 %>% arrange(desc(suma)) %>% head(10)
+  
+# se observan canciones repetidas, por lo que se vuelve a trabajar sobre la base original, eliminando las repeticiones, antes de ordenar y cortar nuevamente
+
+base_sp_yt_select <- base_sp_yt_select %>% distinct(cancion, .keep_all = T)
+
+top_10 <- base_sp_yt_select %>% mutate(suma = visualizaciones + reprod_spt)
+
+top_10 <- top_10 %>% arrange(desc(suma)) %>% head(10)
+
+```
+
+```{r gráfico}
+
+top10_2 <- top_10 %>%
+  select(cancion, bailable, positividad, intensidad) %>% 
+  pivot_longer(
+    cols = -cancion,
+    names_to = "caracteristica",
+    values_to = "valor"
+  )
+
+ggplot(top10_2, aes(x = reorder(cancion, valor), y = valor, fill = caracteristica)) +
+  geom_col(position = "dodge") +
+  coord_flip() +
+  labs(
+    title = "Características de las top 10 canciones cross platform",
+    x = "Canción",
+    y = "Valor de la característica"
+  ) +
+  theme_minimal()
+
+#En pos de facilitar el análisis, también se hace un cálculo de los promedios y desviación estándar de cada característica
+
+options(scipen = 999)
+
+tabla_res <- skimr::skim(top_10)
+
+tabla_res <- tabla_res %>% select(-skim_type, -n_missing, -complete_rate, -character.min, -character.max, -character.empty, -character.n_unique, -character.whitespace)
+
+tabla_res <- tabla_res[-(1:3),]
 
 ```
