@@ -1,24 +1,29 @@
 ## Tarea Análisis de Datos II
 ### Que hace popular una canción?
 
-Explorar la relación entre la popularidad de una canción y sus componentes estructurales
+¿Que es lo que hace que una canción sea exitosa? será su ritmo? su melodía? cuan baliable es la canción? estas y más preguntas me surgieron cuando encontré la base de datos en keggle, que une información entregada por las API de Spotify y Youtube sobre más de 15.000 canciones seleccionadas. Por tanto, en este trabajo se buscará realizar un breve análisis sobre la relación entre las características de una canción y su éxito/popularidad.
 
-```{r importación bases}
+Para esto, en primer lugar, se importan los paquetes que serán relevantes a lo largo del trabajo
+```{r importación paquetes}
 library(tidyverse)
 library(readxl)
 library(writexl)
 library(ggcorrplot)
 ```
-
+En segundo lugar, se importa la base de datos
 ```{r descarga base de datos relevante}
 base_sp_yt <- read_csv("Spotify_Youtube.csv")
 ```
 
+Posteriormente, se seleccionan varias variables que podrían ser relevantes para el análisis planteado, y se hacen ajustes varios de formato y estandarización
 ```{r selección y limpieza de variables relevantes}
+
 #se seleccionan las variables a analizar
 base_sp_yt_select <- base_sp_yt %>% select(Track, Artist, Album_type, Danceability, Energy, Loudness, Valence, Tempo, Duration_ms, Stream, Views, Likes, Comments)
-
-#Se elimina la base original en pos del orden
+```
+* Track es la canción; Artist el artista principal; el tipo de album indica si es un conjunto de canciones o un single; Danceability es un valor numérico determinado por Spotify que indica cuan bailable es una canción, medida del 0 al 1; Energy es una medida, también determinada por Spotify, que indica el nivel perceptual de intensidad, con una escala de 0 a 1; Loudness mide los decibeles promedio de una canción; Valence es una medida de operacionalización de la "positividad" o alegría de una canción, también se escala del 0 al 1; Tempo es la medición de los bpm de la canción; Duration_ms es el largo de la canción medido en milisegundos; Stream se refiere al conteo de las reproducciones de la canción en Spotify; Views refiere a la cantidad de visualizaciones de la respectiva canción en youtube; Likes y Comments refieren, respectivamente, a la cantidad de likes y comentarios que recibió el video con la canción en youtube.
+```
+#Se elimina la base original en pos del orden del ambiente con el que se trabaja
 rm(base_sp_yt)
 
 #Se estandarizan los nombres de las variables a lower case y a español
@@ -41,7 +46,7 @@ base_sp_yt_select <- base_sp_yt_select %>% rename(cancion = Track,
 base_sp_yt_select <- base_sp_yt_select %>% mutate(duracion = duracion / 1000)
 ```
 
-Primero se harán algunos cálculos de correlación de interés. Se utilizará likes y reproducciones como variables de operacionalización para la popularidad. Visualizaciones no porque likes ya funge como variable operacionalización desde youtube
+Con la base ya más ordenada, se procede a realizar algunos cálculos de correlación de interés. Se utilizará likes y reproducciones como variables de operacionalización para la popularidad/éxito. Visualizaciones en youtube no se utiliza porque la variable likes ya funge como variable de operacionalización desde youtube.
 
 ```{r cálculos iniciales de correlación entre variables de interés}
 
@@ -49,32 +54,30 @@ cor(base_sp_yt_select$positividad, base_sp_yt_select$likes, use = "complete.obs"
 # 0.01186376
 cor(base_sp_yt_select$positividad, base_sp_yt_select$reprod_spt, use = "complete.obs")
 # -0.01210929
+```
+Como se puede observar, pareciera existir una muy baja relación de afectación entre la positividad de una canción y las reproducciones en spotify o los likes que la misma recibe en Youtube. Más extraño aún, y si bien el valor es bajo, pareciera existir una correlación negativa entre la positividad de la canción y la cantidad de reproducciones en Spotify de la misma. Esto nos indicaría que la positividad de una canción no afectaría su popularidad
 
-#breve comentario
-
----O---
-
+```
 cor(base_sp_yt_select$intensidad, base_sp_yt_select$likes, use = "complete.obs")
 # 0.06282433
 cor(base_sp_yt_select$intensidad, base_sp_yt_select$reprod_spt, use = "complete.obs")
 # 0.04423912
+```
+Extrañamente, la intensidad de una canción pareciera tampoco afectar en mayor medida la cantidad de reproducciones o likes que recibe la canción respectiva. Si bien presentan una relación más fuerte que la positividad, y en ambos casos sería una relación de influencia positiva, los valores son relativamente bajos, con lo que nuevamente se podría plantear que la intensidad de una canción pareciera no influir en su popularidad/éxito
 
-# comentario
-
----O---
-  
+```  
 cor(base_sp_yt_select$bailable, base_sp_yt_select$reprod_spt, use = "complete.obs")
 # 0.07337514
 cor(base_sp_yt_select$bailable, base_sp_yt_select$likes, use = "complete.obs")
 # 0.09939559
-
-#comentarios
 ```
+Nuevamente, el resultado es inesperado. Si bien la relación de influencia de la "bailabilidad" de una canción para con su éxito pareciera ser la más fuerte de las relaciones hasta ahora vistas, los valores todavía resaltan por su bajo valor, lo que llama la atención con respecto a qué, exactamente, devendría en que una canción sea popular o no.
+
+---O---
+
+A partir de lo anterior, y con tal de realizar un análisis más completo y holístico, se procede a construir un heatmap de correlaciones para todas las variables. Esto es, un cuadro que ilustre la correlación entre cada una de las variables en la base de datos. Empero, se crea en primer lugar una base nueva, pero sin las variables de cancion, autor y tipo de album, por ser de tipo character
 
 ```{r heatmap de correlaciones}
-
-#Para poder realizar un análisis holístico con todas las variables, se procede a realizar un heatmap de correlaciones. Esto es, un cuadro que ilustre la correlación entre cada una de las variables en la base de datos. Primero, se crea una nueva base sin las variables cancion, autor y tipo de album, por ser de tipo caracter
-
 base_cor <- base_sp_yt_select %>% select(-cancion, -autor, -tipo_album)
 
 base_cor_data <- cor(base_cor, use = "complete.obs")
@@ -85,12 +88,13 @@ ggcorrplot(
   type = "lower",        # solo mitad inferior
   lab = TRUE,            # muestra los valores
   lab_size = 3,
-  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo
-)
-
+  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo)
 ```
 
-estos resultados evidencian una dinámica poco esperada: poca correlación entre las características de una canción y su popularidad, medida por reproducciones y like. Se realizará el mismo gráfico, pero con correlación de spearman. 
+<img width="875" height="540" alt="image" src="https://github.com/user-attachments/assets/b22558e3-35de-49fc-b0dc-f3aa7c1243bc" />
+
+Estos resultados estarían evidenciando una dinámica poco esperada al inicio de la investigación: una baja relación general entre las características de una canción y su éxito a través de múltiples plataformas. Debido a esto, se construye otro mapa, pero utilizando una correlación bajo el método spearman, buscando analizar desde otros ángulos la información y encontrar posibles ejes explicativos para lo observado.
+
 
 ```{r Spearson Headmap}
 base_cor_sp <- cor(base_cor, use = "complete.obs", method = "spearman")
@@ -101,14 +105,16 @@ ggcorrplot(
   type = "lower",        # solo mitad inferior
   lab = TRUE,            # muestra los valores
   lab_size = 3,
-  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo
-)
-
+  colors = c("#6D9EC1", "white", "#E46726")  # azul → blanco → rojo)
 ```
+<img width="875" height="540" alt="image" src="https://github.com/user-attachments/assets/c835b52f-dc23-460d-8530-b467a5da0374" />
 
-Los resultados nos dan más de lo mismo: las características propias de una canción parecieran no afectar su popularidad. Otras variables parecieran afectar el éxito de una canción, sin embargo, pareciera que la presente base de datos no nos permite estudiar esto de momento. Ahora procedemos a hacer un último breve análisis de las top 10 canciones, determinadas por el total de reproducciones entre ambas plataformas, con lo que se sumará, por canción, las columnas visualizacion y reprod_sp
+Los resultados observados son prácticamente iguales, indicando que la relación entre las variables se caracterizan por ser lineales y monótonas, sin grandes outliers. Además, nos ilustra que el análisis obtenido previamente pareciera ser correcto: las características propias de una canción parecieran no afectar su popularidad/éxito. Esto pareciera indicar que son otras variables que afectarían el éxito de una canción, como la popularidad del cantante, el marketing y publicidad, entre otros. Sin embargo, la presente base de datos no nos permite estudiar este punto.
 
-```{r top 10}
+Sin embargo, se procede a construir otro gráfico que pudiese ser de utilidad para analizar la relación características - éxito de una canción. Se realizará un gráfico que permitirá observar al top 10 de canciones en ambas plataformas, sumando por cada canción, las columnas de visualización de youtube y reproducciones de spotify. A partir de esta tabla, se observará el valor que toma cada característica para estas canciones, con tal de evlauar si hay algún patrón o característica que resalte en las canciones con más reproducciones en ambas plataformas.
+
+
+```{r obtención del top 10}
 top_10 <- base_sp_yt_select %>% mutate(suma = visualizaciones + reprod_spt)
 
 top_10 <- top_10 %>% arrange(desc(suma)) %>% head(10)
@@ -120,10 +126,9 @@ base_sp_yt_select <- base_sp_yt_select %>% distinct(cancion, .keep_all = T)
 top_10 <- base_sp_yt_select %>% mutate(suma = visualizaciones + reprod_spt)
 
 top_10 <- top_10 %>% arrange(desc(suma)) %>% head(10)
-
 ```
 
-```{r gráfico}
+```{r construcción del gráfico}
 
 top10_2 <- top_10 %>%
   select(cancion, bailable, positividad, intensidad) %>% 
@@ -142,15 +147,21 @@ ggplot(top10_2, aes(x = reorder(cancion, valor), y = valor, fill = caracteristic
     y = "Valor de la característica"
   ) +
   theme_minimal()
+```
+<img width="875" height="540" alt="image" src="https://github.com/user-attachments/assets/bef09191-e828-4571-a59e-4afdff33509e" />
 
+```
 #En pos de facilitar el análisis, también se hace un cálculo de los promedios y desviación estándar de cada característica
 
 options(scipen = 999)
 
 tabla_res <- skimr::skim(top_10)
 
+#se ordena la tabla en pos de claridad, eliminando las columnas no relevantes y eliminando filas con valores que no son de interés
 tabla_res <- tabla_res %>% select(-skim_type, -n_missing, -complete_rate, -character.min, -character.max, -character.empty, -character.n_unique, -character.whitespace)
 
 tabla_res <- tabla_res[-(1:3),]
-
 ```
+<img width="641" height="299" alt="Captura de pantalla (196)" src="https://github.com/user-attachments/assets/fb2c7925-0ee3-4707-abd5-36f80e409074" />
+
+# aca falta el análisis final
