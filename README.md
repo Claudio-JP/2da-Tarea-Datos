@@ -127,6 +127,7 @@ top_10 <- base_sp_yt_select %>% mutate(suma = visualizaciones + reprod_spt)
 
 top_10 <- top_10 %>% arrange(desc(suma)) %>% head(10)
 ```
+---O---
 
 ```{r construcción del gráfico}
 
@@ -150,9 +151,12 @@ ggplot(top10_2, aes(x = reorder(cancion, valor), y = valor, fill = caracteristic
 ```
 <img width="875" height="540" alt="image" src="https://github.com/user-attachments/assets/bef09191-e828-4571-a59e-4afdff33509e" />
 
-```
-#En pos de facilitar el análisis, también se hace un cálculo de los promedios y desviación estándar de cada característica
+--
 
+En pos de facilitar el análisis, también se hace un cálculo de los promedios y desviación estándar de cada característica
+
+
+```
 options(scipen = 999)
 
 tabla_res <- skimr::skim(top_10)
@@ -164,4 +168,4 @@ tabla_res <- tabla_res[-(1:3),]
 ```
 <img width="641" height="299" alt="Captura de pantalla (196)" src="https://github.com/user-attachments/assets/fb2c7925-0ee3-4707-abd5-36f80e409074" />
 
-# aca falta el análisis final
+A partir del gráfico y la tabla, son varias las conclusiones relevantes que pueden obtenerse: 
